@@ -1,0 +1,11 @@
+node_modules/
+dist/
+**/dist/
+coverage/
+.npm-cache/
+.env
+*.db
+*.db-journal
+backend/prisma/*.db
+frontend/.vite/
+*.tsbuildinfo

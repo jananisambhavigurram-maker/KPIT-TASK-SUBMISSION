@@ -1,0 +1,325 @@
+AGILEFLOW — DETAILED PROJECT WORKFLOWS AND FEATURES
+KPIT INTERNSHIP ASSIGNMENT SUBMISSION
+
+1. PURPOSE OF THE APPLICATION
+
+AgileFlow is a full-stack Agile work-management application intended for a small software team. It keeps delivery work organised in a Project -> User Story -> Task hierarchy. It is not only a visual board: the backend persists projects, stories, tasks, membership, notifications, activity rows, and background jobs in SQLite through Prisma.
+
+The main user journey is:
+- A person creates an account or signs in.
+- The application loads only the project data that account may access.
+- A manager or admin creates projects, stories, and tasks.
+- A task can be assigned only to a member of its project.
+- Assignment creates a durable background job in the same database transaction as the task change.
+- The worker processes that job and creates an in-app notification.
+- Users view project progress, task state, Kanban columns, search results, and notifications.
+- Members move only their own assigned tasks through status. Managers/admins manage accessible project work.
+
+2. TECHNOLOGY AND RUNTIME WORKFLOW
+
+The browser client is React 19 with TypeScript and Vite. The backend is a Node.js TypeScript Express 5 application. Prisma maps TypeScript queries to an SQLite database. A polling worker is started by the backend server process.
+
+In local development:
+- Vite serves the frontend at port 5173.
+- Vite proxies relative /api requests to the backend at port 4000.
+- The Express app exposes API routes under /api.
+- Swagger UI is served at /api-docs.
+- The server starts the background worker after it starts listening.
+
+The frontend has no external routing or state-management library. App.tsx stores the active user, active view, projects, selected project, dashboard, notifications, search query/results, modal state, errors, toasts, and loading state with React hooks.
+
+3. AUTHENTICATION WORKFLOW
+
+Registration:
+1. The visitor opens the sign-in page and switches to the create-account form.
+2. The client sends POST /api/auth/register with name, email, and password.
+3. The backend validates the body with Zod.
+4. The backend checks that email is unique.
+5. The password is salted and hashed with Node scrypt.
+6. A User row is created with role MEMBER.
+7. The backend signs a custom HMAC token containing user ID, expiry, and sessionVersion.
+8. The response contains the signed token and a safe user object without passwordHash.
+9. The frontend saves the token in sessionStorage and enters the workspace.
+
+Login:
+1. The visitor submits email and password to POST /api/auth/login.
+2. The login endpoint has a process-memory IP limit of 10 attempts in 15 minutes.
+3. Zod validates the values and lowercases the email.
+4. The backend looks up the user and verifies the scrypt password hash with timing-safe comparison.
+5. The server returns the same signed-token/safe-user shape.
+6. The frontend puts the token in sessionStorage and requests /api/auth/me on later tab refreshes.
+
+Authenticated request:
+1. The API client reads the token from sessionStorage.
+2. It adds Authorization: Bearer <token> to the fetch request.
+3. requireAuth verifies the HMAC signature and eight-hour expiry.
+4. It loads the user by token user ID.
+5. It checks token sessionVersion against the stored User.sessionVersion.
+6. Only then does the route run.
+
+Logout and password change:
+- Logout increments sessionVersion and returns 204. Earlier tokens for that account no longer match the database version.
+- Password change first verifies currentPassword, stores a fresh hash, increments sessionVersion, and returns a new signed token.
+- An admin role change also increments the target user's sessionVersion.
+
+4. ROLE AND MEMBERSHIP WORKFLOW
+
+There are three stored role values:
+- ADMIN
+- MANAGER
+- MEMBER
+
+Roles determine permitted actions:
+- ADMIN can create users, change roles, see all projects, and delete projects.
+- MANAGER can create projects and manage stories/tasks/members in projects where the manager is a member.
+- MEMBER can access member projects and only update the status of a task assigned to that member.
+
+Project membership is a separate database join model, ProjectMember. Non-admin project visibility is constrained by ProjectMember rows. The API applies this to project lists and details, stories, tasks, dashboard, search, and Kanban.
+
+When a manager/admin creates a project, one Prisma transaction:
+1. creates the Project;
+2. adds the creator to ProjectMember;
+3. creates a PROJECT_CREATED activity item.
+
+Managers/admins can add an existing user with POST /api/projects/:id/members. The current implementation has list/add membership APIs, but it does not contain a remove-member endpoint or a complete membership-management user-interface screen.
+
+5. PROJECT, STORY, AND TASK WORKFLOW
+
+Project:
+- A project has a global unique key, name, description, and status.
+- A caller may supply a key matching the key validation rule.
+- If the key is omitted, the server derives it from the project name and appends a number if required to avoid a collision.
+- Updating a project requires a manager/admin with project access.
+- A project key cannot change after the project has stories because derived story/task keys would no longer match the prefix.
+- Only an admin can delete a project. Database cascades delete its stories, tasks, activities, and membership rows.
+
+User story:
+- A story belongs to one project through projectId.
+- A story has globally unique key, title, description, status, and priority.
+- The API normally generates a key from the project key in the form PROJECT-US-001.
+- Before creation, it normalizes existing titles and the candidate title by lowercasing, trimming, and collapsing whitespace.
+- A matching title in the same project returns SIMILAR_STORY_EXISTS unless allowSimilar is true.
+- Managers/admins with project membership may create, update, and delete stories.
+
+Task:
+- A task belongs to one story through userStoryId.
+- It has globally unique key, title, description, status, priority, optional assignee, and optional due date.
+- The API normally generates a key from the project key in the form PROJECT-T-001.
+- The API verifies that assignedToId is a current ProjectMember for the parent project.
+- Creating or changing an assignee writes a background job in the task transaction.
+- Changing task status writes a TASK_STATUS_CHANGED activity record.
+- An assigned MEMBER may submit an update only if title, description, priority, assignee, key, and due date are unchanged; only status can change.
+
+6. DASHBOARD, PROJECT VIEW, AND ACTIVITY WORKFLOW
+
+The Overview screen calls GET /api/dashboard and GET /api/projects. The dashboard endpoint calculates its data from accessible records:
+- number of accessible projects;
+- active project count;
+- accessible stories/tasks;
+- current user's assigned task count;
+- completed task count;
+- overdue non-DONE task count;
+- unread notification count;
+- task counts by status;
+- task counts by priority;
+- per-project progress based on done tasks divided by total tasks.
+
+The Project view calls GET /api/projects/:id. The response includes:
+- project data;
+- its stories;
+- each story's tasks and safe assigned-user data;
+- up to 12 most recent activities;
+- calculated story/task/completion/status/progress fields.
+
+Activity rows are created by the current API for project creation/update, story creation/update, task creation, and task status changes. Activity.actorId is stored as an optional string; it is not a database foreign key.
+
+7. KANBAN WORKFLOW
+
+The Kanban view calls GET /api/kanban. It may request all accessible projects or one selected project. The API loads accessible tasks and returns three arrays: TODO, IN_PROGRESS, and DONE.
+
+Managers/admins can drag cards between columns. Task cards also provide a status select. Members see a select only for their assigned task; other task status controls are disabled. When a status change is initiated:
+1. The frontend temporarily removes the task from its old local column and adds it to the new one.
+2. It sends PUT /api/tasks/:id.
+3. On success, the workspace refreshes and shows a toast.
+4. On failure, the Kanban component restores the saved previous board state and the workspace displays an error message.
+
+8. SEARCH WORKFLOW
+
+The top-bar search waits 250 milliseconds after the last input change. It calls GET /api/search?q=term only when the trimmed term has more than one character.
+
+The API returns at most 10 matching projects, stories, and tasks per group. It matches:
+- project key or name;
+- story key or title;
+- task key or title.
+
+All search queries are membership-scoped for non-admin users. Empty/missing q returns empty result arrays. Search result buttons navigate to the related project in the current tab-state interface.
+
+9. TASK FILTER WORKFLOW
+
+The API provides:
+- GET /api/stories/:storyId/tasks, with optional status, priority, and assignedToId;
+- GET /api/tasks, with optional status, priority, assignedToId, projectId, storyId, overdue, and completed.
+
+The values are validated by Zod. Status values are TODO, IN_PROGRESS, or DONE. Priority values are LOW, MEDIUM, or HIGH. IDs used by these filters are expected to be CUIDs. An invalid status does not become a database error; it returns a 400 validation response.
+
+The React API client has a tasks(filters) function, but there is not currently a dedicated task-list/filter UI screen. The dashboard, project detail, search, and Kanban are the primary current task views.
+
+10. ASYNCHRONOUS ASSIGNMENT NOTIFICATION WORKFLOW
+
+This is the application's explicit asynchronous feature.
+
+Trigger:
+- A manager/admin creates a task with assignedToId.
+- A manager/admin changes a task from one assignee to another.
+
+Transaction:
+1. The route validates the task and confirms assignee membership.
+2. It creates or updates Task.
+3. It creates BackgroundJob with type TASK_ASSIGNED and JSON payload containing taskId, userId, and assignmentVersion.
+4. It writes activity when applicable.
+5. The transaction commits, so a task assignment does not exist without its job when the assignment path succeeds.
+
+Worker:
+1. server.ts calls startWorker after Express starts listening.
+2. startWorker starts one setInterval using JOB_POLL_INTERVAL_MS, default 1000 ms.
+3. It also calls recoverStaleJobs and processNextJob immediately.
+4. processNextJob finds the oldest pending job whose runAfter is due.
+5. It conditionally updates that same record from PENDING to PROCESSING, sets lockedAt, and increments attempts.
+6. If the conditional claim finds no record, another call already claimed it and this call stops.
+7. For TASK_ASSIGNED, it loads the task.
+8. If the task no longer exists or its assignee differs from payload.userId, the job is completed without a notification.
+9. Otherwise, it checks Notification.sourceJobId.
+10. It creates a notification only if that source job has not created one before.
+11. It marks the job COMPLETED and clears lockedAt.
+
+Failure/retry:
+- Unsupported job type or other processing errors are caught.
+- The worker writes lastError.
+- attempts is evaluated as the pre-claim count plus one.
+- Before maxAttempts, default 3, the worker returns the job to PENDING and sets runAfter to current time plus attempts x 1000 ms.
+- At/after maxAttempts, the job becomes FAILED and lockedAt is cleared.
+- recoverStaleJobs returns a PROCESSING job to PENDING when lockedAt is older than JOB_STALE_AFTER_MS, default 60000 ms.
+
+Idempotency:
+- Notification.sourceJobId is unique.
+- This prevents duplicate notification rows from the same job.
+- The workflow is at-least-once processing with idempotent notification creation, not exactly-once delivery.
+
+11. NOTIFICATION WORKFLOW
+
+The notification panel calls GET /api/notifications and displays the current user's rows, newest first. An admin can query another user's rows through the optional userId API query; the normal frontend requests the current user's notifications.
+
+The user can:
+- mark one notification read through PUT /api/notifications/:id/read;
+- mark all of the current user's unread notifications read through PUT /api/notifications/read-all.
+
+The owner or an admin can mark a single notification read. Notifications store type, message, read state, created time, user ID, and optional unique source job ID.
+
+12. VALIDATION AND ERROR WORKFLOW
+
+Zod validates:
+- project create/update body;
+- story create/update body;
+- task create/update body;
+- registration/login/password body;
+- admin-created user body;
+- task filters.
+
+Validation errors have:
+- status 400;
+- code VALIDATION_ERROR;
+- message Invalid request data;
+- a fields map generated from Zod's flattened field errors.
+
+Other explicit errors use AppError:
+- 401 for authentication/current-password/credential failures;
+- 403 for role, membership, ownership, or action restrictions;
+- 404 for missing resource;
+- 409 for duplicate key/email/membership, similar stories, and locked project keys;
+- 429 for login rate-limit rejection.
+
+Unexpected exceptions are logged by the server and sent to the client as a generic 500 INTERNAL_ERROR response.
+
+13. API AND SWAGGER WORKFLOW
+
+All API JSON success responses have a data wrapper. A 204 has no content. Swagger UI is mounted at http://localhost:4000/api-docs and generated from backend/src/swagger.ts.
+
+Swagger documents a useful subset of the implementation. docs/api.md is the complete endpoint description because several existing endpoints are not currently in the Swagger definition, including logout, password update, all user-role routes, membership routes, story GET/PUT/DELETE, GET /tasks, GET /tasks/:id, and notification read-all.
+
+14. SECURITY IMPLEMENTATION SUMMARY
+
+Present:
+- scrypt password hashing with random salts;
+- timing-safe password comparison;
+- custom HMAC signed tokens with eight-hour expiration;
+- sessionVersion token invalidation;
+- backend authentication, role checks, project membership checks, task-owner restriction;
+- Zod validation;
+- Prisma database access rather than handcrafted SQL;
+- 100kb JSON body limit;
+- CORS configuration from CORS_ORIGIN;
+- Helmet middleware;
+- login-only in-memory IP rate limit;
+- generic unexpected-error client response;
+- .env and SQLite database files ignored by Git.
+
+Important limitations:
+- frontend token is stored in sessionStorage and remains exposed to in-page JavaScript;
+- Helmet contentSecurityPolicy is explicitly disabled;
+- no HTTPS/HSTS deployment setup is in the repository;
+- rate limit is process-memory, login-only, and not shared across instances;
+- no password reset/email verification/refresh-token flow;
+- no migrations directory/versioned migration workflow;
+- worker shares the API process;
+- no CI, browser E2E tests, dependency scanning, or operational monitoring configuration is present.
+
+15. TEST WORKFLOW
+
+npm test runs the backend Vitest suite. Six integration tests use Supertest against createApp.
+
+The global test setup:
+1. sets DATABASE_URL to file:./test.db;
+2. removes any prior prisma/test.db and journal;
+3. copies prisma/dev.db to prisma/test.db;
+4. after tests, removes the test copy.
+
+Each test clears only the test database's application records before executing its scenario.
+
+Covered scenarios:
+- registration, invalid login, auth requirement, logout token invalidation;
+- project membership isolation and role actions;
+- generated keys, duplicate key rejection, similar stories, invalid filters;
+- MEMBER status-only task update;
+- scoped dashboard/search and one notification per job;
+- retry-to-FAILED and stale PROCESSING job recovery.
+
+Because setup copies prisma/dev.db, test execution requires that a compatible prisma/dev.db already exists.
+
+16. SEED AND DEMO WORKFLOW
+
+npm run db:seed executes prisma/seed.ts. This is destructive for the local configured database: it deletes jobs, notifications, activities, tasks, stories, projects, and users before inserting demo data.
+
+The seed creates:
+- Priya Admin, Rahul Manager, Alice Patel, Bob Kumar, and Charlie Shah;
+- E-Commerce Platform and Food Delivery App projects;
+- project memberships;
+- six user stories;
+- eleven tasks;
+- activity rows;
+- one notification.
+
+All demo accounts use DemoPass123!. The seed is intended for local demonstration and evaluation only, not for a production environment.
+
+17. DOCUMENTATION MAP
+
+The submission folder contains:
+- architecture.md: project overview, frontend/backend layers, data flows, async design;
+- api.md: full route-by-route API documentation;
+- database-schema.md: models, fields, relationships, constraints, and ER diagram;
+- design-decisions.md: actual decisions and alternatives;
+- security.md: implemented controls and limitations;
+- future-improvements.md: sensible next work;
+- this project-workflows-and-features.txt file: detailed end-to-end explanation.
+
+The root README links to each document and includes setup, demo, AI usage, tests, security summary, and future improvement summary.
+

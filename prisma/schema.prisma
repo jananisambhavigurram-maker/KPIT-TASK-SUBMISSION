@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url = env("DATABASE_URL")
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+enum WorkStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+enum Role {
+  ADMIN
+  MANAGER
+  MEMBER
+}
+
+model User {
+  id String @id @default(cuid())
+  name String
+  email String @unique
+  passwordHash String @default("")
+  sessionVersion Int @default(0)
+  role Role @default(MEMBER)
+  createdAt DateTime @default(now())
+  assignedTasks Task[] @relation("Assignee")
+  notifications Notification[]
+  memberships ProjectMember[]
+}
+
+model Project {
+  id String @id @default(cuid())
+  key String @unique
+  name String
+  description String @default("")
+  status ProjectStatus @default(ACTIVE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  stories UserStory[]
+  activities Activity[]
+  members ProjectMember[]
+  @@index([status])
+}
+
+model UserStory {
+  id String @id @default(cuid())
+  projectId String
+  key String @unique
+  title String
+  description String @default("")
+  status WorkStatus @default(TODO)
+  priority Priority @default(MEDIUM)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks Task[]
+  @@index([projectId])
+  @@index([status])
+}
+
+model Task {
+  id String @id @default(cuid())
+  userStoryId String
+  key String @unique
+  title String
+  description String @default("")
+  status WorkStatus @default(TODO)
+  priority Priority @default(MEDIUM)
+  assignedToId String?
+  dueDate DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userStory UserStory @relation(fields: [userStoryId], references: [id], onDelete: Cascade)
+  assignedTo User? @relation("Assignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  @@index([userStoryId])
+  @@index([assignedToId])
+  @@index([status, priority])
+}
+
+model Notification {
+  id String @id @default(cuid())
+  userId String
+  type String
+  message String
+  sourceJobId String? @unique
+  isRead Boolean @default(false)
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, isRead])
+}
+
+model BackgroundJob {
+  id String @id @default(cuid())
+  type String
+  payload String
+  status JobStatus @default(PENDING)
+  attempts Int @default(0)
+  maxAttempts Int @default(3)
+  lastError String?
+  lockedAt DateTime?
+  runAfter DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, runAfter])
+}
+
+model ProjectMember {
+  id String @id @default(cuid())
+  projectId String
+  userId String
+  createdAt DateTime @default(now())
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([projectId, userId])
+  @@index([userId])
+}
+
+model Activity {
+  id String @id @default(cuid())
+  projectId String
+  actorId String?
+  type String
+  message String
+  createdAt DateTime @default(now())
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([projectId, createdAt])
+}

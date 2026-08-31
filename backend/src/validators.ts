@@ -1,0 +1,15 @@
+import { z } from 'zod';
+const projectStatus = z.enum(['ACTIVE', 'COMPLETED', 'ARCHIVED']);
+const workStatus = z.enum(['TODO', 'IN_PROGRESS', 'DONE']);
+const priority = z.enum(['LOW', 'MEDIUM', 'HIGH']);
+const text = z.string().trim().max(2000);
+const key = z.string().trim().toUpperCase().regex(/^[A-Z][A-Z0-9-]{1,11}$/, 'Use 2–12 uppercase letters, numbers, or hyphens');
+export const projectInput = z.object({ key: key.optional(), name: z.string().trim().min(1).max(120), description: text.optional(), status: projectStatus.optional() });
+export const storyInput = z.object({ key: z.string().trim().toUpperCase().regex(/^[A-Z][A-Z0-9-]{3,30}$/).optional(), title: z.string().trim().min(1).max(180), description: text.optional(), status: workStatus.optional(), priority: priority.optional(), allowSimilar: z.boolean().optional() });
+export const taskInput = z.object({ key: z.string().trim().toUpperCase().regex(/^[A-Z][A-Z0-9-]{3,30}$/).optional(), title: z.string().trim().min(1).max(180), description: text.optional(), status: workStatus.optional(), priority: priority.optional(), assignedToId: z.string().cuid().nullable().optional(), dueDate: z.coerce.date().nullable().optional() });
+export const userInput = z.object({ name: z.string().trim().min(1).max(100), email: z.string().email().max(254) });
+export const adminUserInput = userInput.extend({ password: z.string().min(8).max(128), role: z.enum(['ADMIN', 'MANAGER', 'MEMBER']).optional() });
+export const registerInput = z.object({ name: z.string().trim().min(2).max(100), email: z.string().email().max(254).transform(value => value.toLowerCase()), password: z.string().min(8).max(128) });
+export const loginInput = z.object({ email: z.string().email().max(254).transform(value => value.toLowerCase()), password: z.string().min(1).max(128) });
+export const passwordInput = z.object({ currentPassword: z.string().min(1).max(128), newPassword: z.string().min(8).max(128) });
+export const taskFilters = z.object({ status: workStatus.optional(), priority: priority.optional(), assignedToId: z.string().cuid().optional(), projectId: z.string().cuid().optional(), storyId: z.string().cuid().optional(), overdue: z.enum(['true', 'false']).optional(), completed: z.enum(['true', 'false']).optional() });
