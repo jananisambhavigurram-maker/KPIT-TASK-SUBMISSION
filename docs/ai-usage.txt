@@ -1,0 +1,3 @@
+AI USAGE NOTE
+
+AI tools were used as development assistance for exploring implementation approaches, improving boilerplate and documentation, debugging, reviewing security and workflow behaviour, and proposing test cases. All generated suggestions and code were reviewed, adapted to this repository, and checked using the available build and test commands. AI assistance did not replace source-code review or behaviour verification.
