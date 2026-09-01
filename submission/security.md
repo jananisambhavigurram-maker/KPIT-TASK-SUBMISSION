@@ -45,7 +45,7 @@ This is an implementation-focused security review. It describes what is present,
 
 - There is no organisation-level tenancy model, invitation flow, or member-removal endpoint.
 - Admins can access all projects by design.
-- Some role/membership endpoints are not surfaced in the UI, which can make administration less discoverable but does not weaken backend enforcement.
+- The Project Team panel exposes project-member listing and addition, but user creation, role changes, password changes, and member removal do not have dedicated current UI screens.
 - Activity.actorId is not a database foreign key, so referential integrity for that optional field is not enforced by the schema.
 
 ### Production improvements
@@ -166,4 +166,3 @@ This is an implementation-focused security review. It describes what is present,
 ## Testing coverage relevant to security
 
 The integration suite verifies protected routes, logout token invalidation, membership data isolation, role restrictions, invalid filters, member task-update restrictions, and worker idempotency/recovery. It does not include browser security tests, penetration tests, dependency scanning, CSP tests, or load testing.
-

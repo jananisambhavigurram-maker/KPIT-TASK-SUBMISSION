@@ -90,8 +90,8 @@ A role answers what an account can do; membership answers which project data a n
 
 **Tradeoffs**
 
-- Membership management is only an add/list API; there is no remove-member endpoint.
-- The current frontend does not expose a complete membership-administration screen.
+- Membership management supports list/add through the API and a manager/admin Project Team panel; there is no remove-member endpoint.
+- The current frontend does not expose a complete user-administration or invitation-management screen.
 - Admin access is intentionally global.
 
 **Alternative and suitability**  
@@ -217,4 +217,3 @@ The critical value is verifying HTTP authorization, validation, key handling, an
 
 **Alternative and suitability**  
 Separate unit tests, factory-based disposable schema setup, Playwright/Cypress browser tests, and CI would be stronger for production. The current suite targets the highest-risk application behaviours for the assignment.
-

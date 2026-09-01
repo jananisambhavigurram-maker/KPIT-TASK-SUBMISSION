@@ -6,7 +6,7 @@ AgileFlow is a full-stack Agile work-management application for a small software
 
 The central delivery hierarchy is Project -> User Story -> Task. A project has a unique human-readable key such as ECOM. A story belongs to one project and normally receives a key such as ECOM-US-001. A task belongs to one story and normally receives a key such as ECOM-T-001. Tasks hold status, priority, optional assignee, and optional due date.
 
-Users sign up or log in, then work in a React workspace with Overview, Projects, and Kanban tabs. Managers and admins can create and manage project work; project membership controls which projects non-admin users can see. Members can change the status of tasks assigned to them. The UI also exposes project progress, status/priority summaries, search results, notifications, and recent project activity.
+Users sign up or log in, then work in a React workspace with Overview, Projects, and Kanban tabs. Managers and admins can create and manage project work, add existing users through the Project Team panel, and assign only project members. Project membership controls which projects non-admin users can see. Members can change the status of tasks assigned to them. The UI also exposes project progress, status/priority summaries, search results, notifications, and recent project activity.
 
 ## 2. High-level architecture
 
@@ -42,7 +42,7 @@ The frontend is React 19 with TypeScript and Vite. There is no routing library o
 
 ### API communication and state
 
-api.ts calls relative /api endpoints with fetch. When a token is present, it adds Authorization: Bearer <token>. It stores that token in browser sessionStorage, so it survives a refresh in the same tab but not a browser-session restart. A non-2xx response is converted into ApiError, which includes status and server error code when available.
+api.ts calls relative /api endpoints with fetch. When a token is present, it adds Authorization: Bearer <token>. It stores that token in browser sessionStorage, so it survives a refresh in the same tab but not a browser-session restart. A non-2xx response is converted into ApiError, which includes status and server error code when available. Successful empty responses, including the 201 response from adding a project member, are handled without attempting JSON parsing.
 
 App.tsx loads the current user from /auth/me when a saved token exists. The workspace loads projects, dashboard data, users for managers/admins, and notifications in parallel. The project detail is fetched after project selection. There is no client cache library; a successful mutation calls the workspace refresh function.
 
@@ -50,7 +50,7 @@ App.tsx loads the current user from /auth/me when a saved token exists. The work
 
 Forms use native React form events and FormData, not a form library. Inputs supply browser-side required, minLength, and maxLength attributes. The authoritative validation is on the server via Zod. API errors are displayed in the workspace banner or login form; loading states include a startup check, dashboard skeletons, and Kanban loading text. Kanban updates optimistically and restores the preceding board state if the task update fails.
 
-The user interface intentionally does not duplicate every API endpoint. The API has user administration, password change, task-list filtering, and project-member endpoints that are not all exposed as dedicated screens in the current client.
+The Project Team panel uses the project-member list/add API and task forms use that list as their assignee choices. The user interface intentionally does not duplicate every API endpoint: user administration, password change, and task-list filtering do not have dedicated screens in the current client.
 
 ## 4. Backend architecture
 

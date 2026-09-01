@@ -10,8 +10,8 @@ The following improvements are not claimed as current functionality. They are re
 
 ## Project membership and collaboration
 
-- Add a manager-facing UI for listing and adding project members, using the existing membership API.
-- Add member removal, invitations, project ownership, and organisation/team boundaries.
+- Extend the existing manager/admin Project Team panel with member removal, invitation, and project-ownership workflows.
+- Add organisation/team boundaries and project-level permission administration.
 - Add comments, attachments, @mentions, and a more comprehensive audit timeline.
 - Add real-time updates for task movement and notifications using WebSocket/SSE infrastructure if needed.
 
@@ -49,4 +49,3 @@ The following improvements are not claimed as current functionality. They are re
 - Add containerisation or platform deployment configuration, environment validation at startup, and documented backup/restore procedures.
 - Enforce HTTPS/HSTS and enable a tested Content Security Policy; the current application explicitly disables Helmet CSP.
 - Add structured logging, error tracking, health/readiness checks suitable for deployment, and monitoring for API latency, failed jobs, and worker retries.
-

@@ -10,8 +10,8 @@ The application supports a practical delivery workflow:
 
 1. A manager/admin creates a project.
 2. The creator is added as a project member.
-3. Managers/admins create user stories and tasks in accessible projects.
-4. Tasks can be assigned only to users who belong to that project.
+3. Managers/admins add existing users through the Project Team panel, then create user stories and tasks in accessible projects.
+4. Task assignee choices contain only users who belong to that project.
 5. The recipient receives a persisted in-app notification after the worker processes the assignment job.
 6. Members can update the status of tasks assigned to them; managers/admins can manage project work.
 7. Users use dashboard, project, Kanban, search, and notification views to monitor the work.
@@ -28,7 +28,7 @@ ECOM-T-001
 
 - Signup, login, logout, password change, and signed bearer-token authentication.
 - ADMIN, MANAGER, and MEMBER roles with backend enforcement.
-- Project membership scoping for non-admin project data.
+- Project membership scoping for non-admin project data, with a manager/admin Project Team panel to add members before assignment.
 - Project, user-story, and task creation/update/delete routes.
 - Global project/story/task search, computed dashboard metrics, and Kanban grouping.
 - Task status, priority, due date, optional assignee, and project activity.
@@ -205,7 +205,7 @@ AI tools were used as development assistance for exploring implementation approa
 4. Open a project to inspect its stories, tasks, activity, and status controls.
 5. Open Kanban to see tasks grouped by TODO, IN_PROGRESS, and DONE. Managers/admins may drag cards.
 6. Use global search to find accessible projects, stories, or tasks.
-7. Create/assign a task as a manager/admin, then use the worker-backed notification flow to view the recipient's notification.
+7. Open a project, add a user in the Project Team panel, then create/assign a task. The assignee will see that project/task after signing in and receives a worker-backed notification.
 8. Sign in as a member to observe membership-scoped data and status-only updates for assigned tasks.
 
 ## Documentation index
@@ -218,4 +218,3 @@ AI tools were used as development assistance for exploring implementation approa
 - [Future improvements](docs/future-improvements.md)
 - [KPIT submission package](submission/README.md)
 - [Detailed workflows and features text file](submission/project-workflows-and-features.txt)
-

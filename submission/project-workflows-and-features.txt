@@ -8,8 +8,8 @@ AgileFlow is a full-stack Agile work-management application intended for a small
 The main user journey is:
 - A person creates an account or signs in.
 - The application loads only the project data that account may access.
-- A manager or admin creates projects, stories, and tasks.
-- A task can be assigned only to a member of its project.
+- A manager or admin creates a project and uses its Project Team panel to add existing users.
+- A manager or admin creates stories and tasks. A task can be assigned only to a member of its project, and the task form shows only those members.
 - Assignment creates a durable background job in the same database transaction as the task change.
 - The worker processes that job and creates an in-app notification.
 - Users view project progress, task state, Kanban columns, search results, and notifications.
@@ -81,7 +81,7 @@ When a manager/admin creates a project, one Prisma transaction:
 2. adds the creator to ProjectMember;
 3. creates a PROJECT_CREATED activity item.
 
-Managers/admins can add an existing user with POST /api/projects/:id/members. The current implementation has list/add membership APIs, but it does not contain a remove-member endpoint or a complete membership-management user-interface screen.
+Managers/admins can use the Project Team panel in the project view to list current members and add an existing user through POST /api/projects/:id/members. The panel excludes existing members from the add selector. Task forms then show only the current project-member list as eligible assignees. There is no remove-member endpoint in the current implementation.
 
 5. PROJECT, STORY, AND TASK WORKFLOW
 
@@ -322,4 +322,3 @@ The submission folder contains:
 - this project-workflows-and-features.txt file: detailed end-to-end explanation.
 
 The root README links to each document and includes setup, demo, AI usage, tests, security summary, and future improvement summary.
-
